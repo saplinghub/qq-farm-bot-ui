@@ -1836,7 +1836,8 @@ async function handleTestOffline() {
             v-model="localOffline.endpoint"
             label="接口地址"
             type="text"
-            :disabled="localOffline.channel !== 'webhook' && localOffline.channel !== 'custom_request'"
+            :placeholder="localOffline.channel === 'bark' ? 'Bark 服务器地址（可选，默认官方服务器）' : ''"
+            :disabled="localOffline.channel !== 'webhook' && localOffline.channel !== 'custom_request' && localOffline.channel !== 'bark'"
           />
 
           <BaseInput

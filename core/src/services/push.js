@@ -45,23 +45,68 @@ async function sendPushooMessage(payload = {}) {
     }
 
     const request = { title, content };
-    if (token) request.token = token;
+    // bark: 处理自定义服务器地址拼接
+    if (channel === 'bark') {
+        if (endpoint && token) {
+            // 如果同时有 endpoint 和 token，拼接它们
+            let url = endpoint;
+            if (!url.endsWith('/')) url += '/';
+            request.token = url + token;
+        } else {
+            // 否则使用 endpoint 或 token（endpoint 优先）
+            request.token = endpoint || token;
+        }
+    } else if (token) {
+        request.token = token;
+    }
     if (channel === 'webhook') request.options = options;
 
-    const result = await pushoo(channel, request);
+    console.log('[PUSHOO] Sending request:', {
+        channel,
+        request: {
+            ...request,
+            token: request.token ? `${request.token.substring(0, 20)}...` : undefined
+        }
+    });
 
-    const raw = (result && typeof result === 'object') ? result : { data: result };
-    const hasError = !!(raw && raw.error);
-    const code = String(raw.code || raw.errcode || (hasError ? 'error' : 'ok'));
-    const message = String(raw.msg || raw.message || (hasError ? (raw.error.message || 'push failed') : 'ok'));
-    const ok = !hasError && (code === 'ok' || code === '0' || code === '' || String(raw.status || '').toLowerCase() === 'success');
+    try {
+        const result = await pushoo(channel, request);
+        console.log('[PUSHOO] Got response:', JSON.stringify(result, null, 2));
 
-    return {
-        ok,
-        code,
-        msg: message,
-        raw,
-    };
+        const raw = (result && typeof result === 'object') ? result : { data: result };
+        const hasError = !!(raw && raw.error);
+        const code = String(raw.code || raw.errcode || (hasError ? 'error' : 'ok'));
+        const message = String(raw.msg || raw.message || (hasError ? (raw.error.message || 'push failed') : 'ok'));
+        // 判断成功：无错误 且 (code 为 ok/0/200/空 或 status 为 success 或 message 为 success)
+        const ok = !hasError && (
+            code === 'ok' ||
+            code === '0' ||
+            code === '200' ||
+            code === '' ||
+            String(raw.status || '').toLowerCase() === 'success' ||
+            message.toLowerCase() === 'success'
+        );
+
+        return {
+            ok,
+            code,
+            msg: message,
+            raw,
+        };
+    } catch (error) {
+        console.error('[PUSHOO] Got error:', error.message);
+        console.error('[PUSHOO] Error details:', {
+            status: error.response?.status,
+            statusText: error.response?.statusText,
+            data: error.response?.data,
+            config: {
+                url: error.config?.url,
+                method: error.config?.method,
+                data: error.config?.data
+            }
+        });
+        throw error;
+    }
 }
 
 /**

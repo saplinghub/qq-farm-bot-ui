@@ -158,6 +158,7 @@ environment:
 ```bash
 pnpm install
 pnpm package:release
+pnpm package:linux
 ```
 
 产物输出在 `dist/` 目录：
